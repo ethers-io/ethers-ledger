@@ -48,7 +48,10 @@ let options = {
 
 let provider = ethers.providers.getDefaultProvider();
 
-let signer = new LedgerSigner(provider, options);
+// Connect using the default Transport
+// - In the browserified (dist) library, the U2F interface
+// - In node.js, the HID interface
+let signer = LedgerSigner.connect(provider, options);
 
 signer.getAddress().then((address) => {
     console.log(address);
