@@ -1,0 +1,47 @@
+{
+  "name": "ethers-ledger",
+  "version": "0.0.1",
+  "description": "An ethers Signer for the Ledger hardware wallet.",
+  "main": "index.js",
+  "dependencies": {
+    "@ledgerhq/hw-app-eth": "^4.19.0",
+    "@ledgerhq/hw-transport": "^4.19.0",
+    "@ledgerhq/hw-transport-node-hid": "^4.19.1",
+    "@ledgerhq/hw-transport-u2f": "^4.20.0",
+    "@types/node": "^10.3.2",
+    "babel-runtime": "^6.26.0",
+    "ethers": "4.0.0-beta.0"
+  },
+  "devDependencies": {
+    "browserify": "^16.2.2",
+    "gulp-uglify": "^3.0.0",
+    "gulp": "^3.9.1",
+    "gulp-cli": "^2.0.1",
+    "gulp-sourcemaps": "^2.6.4",
+    "gulp-typescript": "^5.0.0-alpha.1",
+    "tsify": "^4.0.0",
+    "typescript": "^2.9.1",
+    "vinyl-buffer": "^1.0.1",
+    "vinyl-source-stream": "^2.0.0"
+  },
+  "scripts": {
+    "auto-build": "npm run build -- -w",
+    "build": "tsc -p ./tsconfig.json",
+    "dist": "npm run build && gulp default minified",
+    "test": "npm test"
+  },
+  "browser": {
+      "ethers": "./src.browser/ethers.ts",
+      "./src.ts/transport.ts": "./src.browser/transport.ts"
+  },
+  "keywords": [
+    "ethereum",
+    "ledger",
+    "hardware",
+    "wallet",
+    "ethers",
+    "ethers.js"
+  ],
+  "author": "Richard Moore <me@ricmoo.com>",
+  "license": "MIT"
+}
