@@ -1,6 +1,6 @@
 {
   "name": "ethers-ledger",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "An ethers Signer for the Ledger hardware wallet.",
   "main": "index.js",
   "dependencies": {
@@ -10,12 +10,12 @@
     "@ledgerhq/hw-transport-u2f": "^4.20.0",
     "@types/node": "^10.3.2",
     "babel-runtime": "^6.26.0",
-    "ethers": "4.0.0-beta.0"
+    "ethers": "^4.0.0"
   },
   "devDependencies": {
     "browserify": "^16.2.2",
     "gulp-uglify": "^3.0.0",
-    "gulp": "^3.9.1",
+    "gulp": "^4.0.0",
     "gulp-cli": "^2.0.1",
     "gulp-sourcemaps": "^2.6.4",
     "gulp-typescript": "^5.0.0-alpha.1",
@@ -31,8 +31,8 @@
     "test": "npm test"
   },
   "browser": {
-      "ethers": "./src.browser/ethers.ts",
-      "./src.ts/transport.ts": "./src.browser/transport.ts"
+    "ethers": "./src.browser/ethers.ts",
+    "./src.ts/transport.ts": "./src.browser/transport.ts"
   },
   "keywords": [
     "ethereum",

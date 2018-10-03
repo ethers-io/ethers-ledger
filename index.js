@@ -16,6 +16,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var ethers_1 = require("ethers");
 var hw_app_eth_1 = __importDefault(require("@ledgerhq/hw-app-eth"));
 var transport_1 = require("./transport");
+// We use this to serialize all calls to the Ledger; we should probably do this
+// on a per-transport basis, but we only support one transport (per library)
+var _pending = Promise.resolve(null);
 var LedgerSigner = /** @class */ (function (_super) {
     __extends(LedgerSigner, _super);
     function LedgerSigner(transport, provider, options) {
@@ -24,16 +27,17 @@ var LedgerSigner = /** @class */ (function (_super) {
             options = {};
         }
         if (!options.path) {
-            options.path = ethers_1.ethers.HDNode.defaultPath;
+            options.path = ethers_1.ethers.utils.HDNode.defaultPath;
         }
         ;
         ethers_1.ethers.utils.defineReadOnly(_this, 'provider', provider);
         ethers_1.ethers.utils.defineReadOnly(_this, 'path', options.path);
+        ethers_1.ethers.utils.defineReadOnly(_this, '_transport', transport);
         ethers_1.ethers.utils.defineReadOnly(_this, '_eth', new hw_app_eth_1.default(transport));
         _this._ready = _this._eth.getAppConfiguration().then(function (result) {
             _this._config = JSON.stringify(result);
         });
-        _this._pending = _this._ready;
+        _pending = _this._ready;
         _this._config = JSON.stringify(null);
         return _this;
     }
@@ -52,19 +56,19 @@ var LedgerSigner = /** @class */ (function (_super) {
     };
     LedgerSigner.prototype.getAddress = function () {
         var _this = this;
-        var addressPromise = this._pending.then(function () {
+        var addressPromise = _pending.then(function () {
             return _this._eth.getAddress(_this.path).then(function (result) {
                 return ethers_1.ethers.utils.getAddress(result.address);
             });
         });
-        this._pending = addressPromise;
+        _pending = addressPromise;
         return addressPromise;
     };
     LedgerSigner.prototype.sign = function (transaction) {
         var _this = this;
         return ethers_1.ethers.utils.resolveProperties(transaction).then(function (tx) {
             var unsignedTx = ethers_1.ethers.utils.serializeTransaction(tx).substring(2);
-            var signPromise = _this._pending.then(function () {
+            var signPromise = _pending.then(function () {
                 return _this._eth.signTransaction(_this.path, unsignedTx).then(function (signature) {
                     var sig = {
                         v: signature.v,
@@ -74,7 +78,7 @@ var LedgerSigner = /** @class */ (function (_super) {
                     return ethers_1.ethers.utils.serializeTransaction(tx, sig);
                 });
             });
-            _this._pending = signPromise;
+            _pending = signPromise;
             return signPromise;
         });
     };
@@ -90,14 +94,18 @@ var LedgerSigner = /** @class */ (function (_super) {
             message = ethers_1.ethers.utils.toUtf8Bytes(message);
         }
         var messageHex = ethers_1.ethers.utils.hexlify(message).substring(2);
-        this._pending = this._pending.then(function () {
+        var signPromise = _pending.then(function () {
             return _this._eth.signPersonalMessage(_this.path, messageHex).then(function (signature) {
                 signature.r = '0x' + signature.r;
                 signature.s = '0x' + signature.s;
                 return ethers_1.ethers.utils.joinSignature(signature);
             });
         });
-        return this._pending;
+        _pending = signPromise;
+        return signPromise;
+    };
+    LedgerSigner.prototype.connect = function (provider) {
+        return new LedgerSigner(this._transport, provider);
     };
     LedgerSigner.connect = function (provider, options) {
         return transport_1.Transport.create().then(function (transport) {
@@ -105,7 +113,7 @@ var LedgerSigner = /** @class */ (function (_super) {
         });
     };
     return LedgerSigner;
-}(ethers_1.ethers.types.Signer));
+}(ethers_1.ethers.Signer));
 exports.LedgerSigner = LedgerSigner;
 // If this is browserified, we inject the LedgerSigner into the ethers object
 if (transport_1.platform === 'browser' && global.ethers) {

@@ -8,31 +8,36 @@ export type Options = {
     path?: string
 }
 
-export class LedgerSigner extends ethers.types.Signer {
+// We use this to serialize all calls to the Ledger; we should probably do this
+// on a per-transport basis, but we only support one transport (per library)
+let _pending: Promise<any> = Promise.resolve(null);
+
+export class LedgerSigner extends ethers.Signer {
     readonly path: string;
 
     private _config: string;
+    private _transport: any;
     private _eth: LedgerEth;
 
-    private _pending: Promise<any>;
     private _ready: Promise<void>
 
     constructor(transport: any, provider: ethers.providers.Provider, options?: Options) {
         super();
 
         if (!options) { options = { }; }
-        if (!options.path) { options.path = ethers.HDNode.defaultPath; };
+        if (!options.path) { options.path = ethers.utils.HDNode.defaultPath; };
 
         ethers.utils.defineReadOnly(this, 'provider', provider);
         ethers.utils.defineReadOnly(this, 'path', options.path);
 
+        ethers.utils.defineReadOnly(this, '_transport', transport);
         ethers.utils.defineReadOnly(this, '_eth', new LedgerEth(transport));
 
         this._ready = this._eth.getAppConfiguration().then((result) => {
             this._config = JSON.stringify(result);
         });
 
-        this._pending = this._ready;
+        _pending = this._ready;
 
 
         this._config = JSON.stringify(null);
@@ -50,20 +55,20 @@ export class LedgerSigner extends ethers.types.Signer {
     }
 
     getAddress(): Promise<string> {
-        let addressPromise = this._pending.then(() => {
+        let addressPromise = _pending.then(() => {
             return this._eth.getAddress(this.path).then((result) => {
                 return ethers.utils.getAddress(result.address);
             });
         });
-        this._pending = addressPromise;
+        _pending = addressPromise;
         return addressPromise;
     }
 
-    sign(transaction: ethers.types.TransactionRequest): Promise<string> {
+    sign(transaction: ethers.providers.TransactionRequest): Promise<string> {
         return ethers.utils.resolveProperties(transaction).then((tx) => {
             let unsignedTx = ethers.utils.serializeTransaction(tx).substring(2);
 
-            let signPromise = this._pending.then(() => {
+            let signPromise = _pending.then(() => {
                 return this._eth.signTransaction(this.path, unsignedTx).then((signature) => {
                     let sig = {
                         v: signature.v,
@@ -73,26 +78,26 @@ export class LedgerSigner extends ethers.types.Signer {
                     return ethers.utils.serializeTransaction(tx, sig);
                 });
             });
-            this._pending = signPromise;
+            _pending = signPromise;
 
             return signPromise;
         });
     }
 
-    sendTransaction(transaction: ethers.types.TransactionRequest): Promise<ethers.types.TransactionResponse> {
+    sendTransaction(transaction: ethers.providers.TransactionRequest): Promise<ethers.providers.TransactionResponse> {
         return this.sign(transaction).then((signedTx) => {
             return this.provider.sendTransaction(signedTx);
         });
     }
 
-    signMessage(message: ethers.types.Arrayish | string): Promise<string> {
+    signMessage(message: ethers.utils.Arrayish | string): Promise<string> {
         if (typeof(message) === 'string') {
             message = ethers.utils.toUtf8Bytes(message);
         }
 
         let messageHex = ethers.utils.hexlify(message).substring(2);
 
-        this._pending = this._pending.then(() => {
+        let signPromise = _pending.then(() => {
             return this._eth.signPersonalMessage(this.path, messageHex).then((signature) => {
                 signature.r = '0x' + signature.r;
                 signature.s = '0x' + signature.s;
@@ -100,7 +105,13 @@ export class LedgerSigner extends ethers.types.Signer {
             });
         });
 
-        return this._pending;
+        _pending = signPromise;
+
+        return signPromise;
+    }
+
+    connect(provider: ethers.providers.Provider) {
+        return new LedgerSigner(this._transport, provider);
     }
 
     static connect(provider: ethers.providers.Provider, options?: Options): Promise<LedgerSigner> {
